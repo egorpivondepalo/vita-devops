@@ -65,9 +65,16 @@ python3 run_playbook.py --dev --host "remote_host_ip" --key "path_to_private_ssh
 ```
 
 ### **On remote server**
+- Prepare
+```bash
+# generate ssh-key w/o encryption (~/.ssh/id_rsa - default) and copy it to remote server
+ssh-keygen
+ssh-copy-id root@$remote_server_address
+```
+
 - Run script for init environment
 ```bash
-python3 run_playbook.py --host "192.168.0.170" --tag init
+python3 run_playbook.py --host "192.168.0.170" --tag init --ssh-key "~/.ssh/id_rsa"
 ```
 
 - Run script for deploy services
@@ -76,19 +83,27 @@ python3 run_playbook.py --host "192.168.0.170" --tag dev
 ```
 
 **Arguments:**
-    --no-check - skip check required environment
+    --tag - select tag:
+              dev - deploy for development
+              release - deploy for release
+              dry-run - only build files and configs, Docker not required
+              prune - stop containers, remove volumes and files
+
+    --host - host for init and deploy:
+              127.0.0.1 or local - local server, not required ssh-key
+              XXX.XXX.XXX.XXX - address for remote server, required ssh-key on server
+      
+    -v - verbose, show cmd and logs
+
+    --dry-run - dont execute cmd, only log in terminal
+              
+    --ssh-key - path to ssh key for remote server (default - ~/.ssh/id_rsa)
+    --
 
 ## ⚠️ Known Issues & Resolutions
 
 ### 1. Firewall Port Access Issue
 **Problem**: Connection refused on http://127.0.0.1:1243
-
-**Resolution**: Configure firewall rules
-```bash
-# Add port to firewall
-firewall-cmd --add-port 1243/tcp --permanent
-firewall-cmd --reload
-```
 
 **RESOLVED**: *ADDED TASK FOR ALLOW CUSTOM NGINX PORT!*
 

@@ -159,6 +159,14 @@
         state: present
       tags: ['release', 'dev']
 
+    - name: Open firewall port PSQL
+      ansible.posix.firewalld:
+        port: '{{ external_postgres_port }}/tcp'
+        permanent: yes
+        state: enabled
+        immediate: yes
+      tags: ['init']
+
     - name: Wait for PostgreSQL to be ready
       wait_for:
         host: "{{ postgres_host | default('localhost') }}"
@@ -209,6 +217,14 @@
         state: present
       tags: ['release', 'dev']
 
+    - name: Open firewall port NGINX
+      ansible.posix.firewalld:
+        port: '{{ nginx_external_port }}/tcp'
+        permanent: yes
+        state: enabled
+        immediate: yes
+      tags: ['init']
+
     - name: Wait for NGINX to be ready
       wait_for:
         host: "{{ postgres_host | default('localhost') }}"
@@ -217,14 +233,6 @@
         timeout: 60
         state: started
       tags: ['release', 'dev']
-
-    - name: Open firewall port NGINX
-      ansible.posix.firewalld:
-        port: '{{ nginx_external_port }}/tcp'
-        permanent: yes
-        state: enabled
-        immediate: yes
-      tags: ['init']
 
     - name: Down all containers (PRUNE)
       community.docker.docker_compose_v2:

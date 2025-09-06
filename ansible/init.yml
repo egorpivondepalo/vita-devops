@@ -10,6 +10,7 @@
         name:
           - dnf-plugins-core
           - yum-utils
+          - postgresql
         state: present
       tags: ['init']
 
