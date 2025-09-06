@@ -11,8 +11,7 @@
     docker_compose_path: "docker-compose.yml"
     templates_path: "templates"
     src_path: "src"
-
-    script: "script.sh"
+    logs_path: "logs"
 
     # server_vars
     docker_host: "unix:///var/run/docker.sock"
@@ -40,8 +39,11 @@
     php_internal_src_path: "/var/local/sandboxes/dev/www"
     index_php_file: "index.php"
     index_php_template_file: "{{ templates_path }}/html/index.php.j2"
+    php_logs_path: "/var/log"
     # php environment
     php_fpm_listen: "0.0.0.0:9000"
+    # php logs
+    php_configs_path: "php_config"
 
     # nginx
     nginx_container_name: "nginx"
@@ -49,6 +51,9 @@
     nginx_internal_port: "80"
     nginx_root_path: "/etc/nginx"
     nginx_user: "www-data"
+    nginx_logs_path: "/var/log/nginx"
+    nginx_access_log_path: "{{ nginx_logs_path }}/access.log"
+    nginx_error_log_path: "{{ nginx_logs_path }}/error.log"
 
     # nginx configs
     nginx_conf_file_name: "nginx.conf"
@@ -68,12 +73,11 @@
     production_nginx_default_conf_template: "{{ nginx_templates_path }}/production.default.conf.j2"
     nginx_conf_template: "{{ nginx_templates_path }}/nginx.conf.j2"
     
-
     # networks
     network_name: "vita"
     network_driver: "bridge"
 
-  
+
   tasks:
     - name: Ping server
       ping:

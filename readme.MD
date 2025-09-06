@@ -119,6 +119,16 @@ This files cloned from remote server after RunPlaybook deploy script.
 
 ![image](out/index_page.png)
 
+## Plans TODO
+- **Create custom Ansible modules**
+- **Generating reports from deploy**
+- **Move configs to another repo, pull on deploy**
+- **Move repository to GitLab**
+- **Create pipeline automation**
+- **Observability: health-check + prometheus + grafana**
+- **KVM-virtualization**
+- **Vault Secret Management**
+
 
 ## ⚠️ Known Issues & Resolutions
 

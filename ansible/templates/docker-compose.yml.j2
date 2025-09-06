@@ -19,7 +19,9 @@ services:
     build:
       context: {{ dockerfiles_path }}
       dockerfile: {{ php_fpm_dockerfile }}
-    volumes: [ {{ php_external_src_path }}:{{ php_internal_src_path }} ]
+    volumes:
+      - {{ php_external_src_path }}:{{ php_internal_src_path }}
+      - {{ working_dir }}/{{ logs_path }}/{{ php_fpm_container_name }}:{{ php_logs_path }}
     environment:
         - PHP_FPM_LISTEN={{ php_fpm_listen }}
         - POSTGRES_USER={{ postgres_user }}
@@ -38,6 +40,7 @@ services:
         - {{ external_default_conf_file_path }}:{{ internal_default_conf_file_path }}:ro
         - {{ external_nginx_conf_file_path }}:{{ internal_nginx_conf_file_path }}:ro
         - {{ php_external_src_path }}:{{ php_internal_src_path }}
+        - {{ working_dir }}/{{ logs_path }}/{{ nginx_container_name }}:{{ nginx_logs_path }}
     restart: {{ nginx_restart }}
     networks: [ {{ network_name }} ]
     depends_on:
