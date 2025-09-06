@@ -1,0 +1,51 @@
+services:
+  postgres:
+    container_name: postgres
+    build:
+      context: dockerfiles
+      dockerfile: postgres.Dockerfile
+    ports: [ "5432:5432" ]
+    volumes: [ postgres_data:/var/lib/postgresql/data ]
+    environment:
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_DB=dev_db
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    restart: unless-stopped
+    networks: [ vita ]
+
+  php_fpm:
+    container_name: php_fpm
+    build:
+      context: dockerfiles
+      dockerfile: php_fpm.Dockerfile
+    volumes: [ /root/vita/src:/var/local/sandboxes/dev/www ]
+    environment:
+        - PHP_FPM_LISTEN=0.0.0.0:9000
+        - POSTGRES_USER=dev_user
+        - POSTGRES_DB=dev_db
+        - PHP_EXTENSIONS=pdo_pgsql,pgsql
+    restart: unless-stopped
+    networks: [ vita ]
+
+  nginx:
+    container_name: nginx
+    build:
+      context: dockerfiles
+      dockerfile: nginx.Dockerfile
+    ports: [ "1243:80" ]
+    volumes:
+        - /root/vita/configs/default.conf:/etc/nginx/conf.d/default.conf:ro
+        - /root/vita/configs/nginx.conf:/etc/nginx/nginx.conf:ro
+        - /root/vita/src:/var/local/sandboxes/dev/www
+    restart: unless-stopped
+    networks: [ vita ]
+    depends_on:
+      - php_fpm
+
+networks:
+  vita:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -38,19 +38,21 @@ pip install -r requirements.txt
 ## Manual Run Playbook
 - On local server
 ```bash
+# INIT (prepare server)
+ansible-playbook ansible/init.yml --tags init
+
 # DRY-RUN (generate files and deps on server)
-ansible-playbook ansible/playbook.yml --tags dry-run
+ansible-playbook ansible/deploy.yml --tags dry-run
 
 # Release (deploy to dev)
-ansible-playbook ansible/playbook.yml --tags dev
+ansible-playbook ansible/deploy.yml --tags dev
 
 # Release (deploy to release)
-ansible-playbook ansible/playbook.yml --tags release
+ansible-playbook ansible/deploy.yml --tags release
 
 # PRUNE (stop all containers, clean working_dir and remove volumes)
-ansible-playbook ansible/playbook.yml --tags prune
+ansible-playbook ansible/deploy.yml --tags prune
 ```
-
 
 
 ## **Automatic Deploy**
@@ -99,6 +101,24 @@ python3 run_playbook.py --host "192.168.0.170" --tag dev
               
     --ssh-key - path to ssh key for remote server (default - ~/.ssh/id_rsa)
     --
+
+
+## Results
+**Deploy on remote host**
+  - playbook for init server environment and prepare to deploy
+  - playbook for deploy containers
+  - template-generated docker-compose file, nginx configs and inventory
+  - wait for up PSQL database, check connection in playbook
+  - wait for php_fpm and nginx container
+  - tested read/write to database
+  - script to run playbook and generate summury
+
+**Example generated files**  
+You can find example generated files in **out/generated_configs**
+This files cloned from remote server after RunPlaybook deploy script.
+
+![image](out/index_page.png)
+
 
 ## ⚠️ Known Issues & Resolutions
 
