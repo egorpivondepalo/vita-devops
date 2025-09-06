@@ -1,0 +1,51 @@
+---
+- hosts: server
+  become: true
+  become_user: root
+
+  tasks:
+    - ping:
+    - name: Install required packages
+      dnf:
+        name:
+          - dnf-plugins-core
+          - yum-utils
+        state: present
+      tags: ['init']
+
+    - name: Download Docker repository file
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0644'
+      tags: ['init']
+
+    - name: Install Docker packages
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        disable_gpg_check: yes
+      tags: ['init']
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags: ['init']
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+      changed_when: false
+      tags: ['init']
+
+    - name: Show Docker version
+      debug:
+        msg: "{{ docker_version.stdout }}"
+      tags: ['init']

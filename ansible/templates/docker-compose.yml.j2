@@ -1,0 +1,51 @@
+services:
+  postgres:
+    container_name: {{ postgres_container_name }}
+    build:
+      context: {{ dockerfiles_path }}
+      dockerfile: postgres.Dockerfile
+    ports: [ "{{ external_postgres_port }}:{{ internal_postgres_port }}" ]
+    volumes: [ {{ postgres_volume }} ]
+    environment:
+      - POSTGRES_USER={{ postgres_user }}
+      - POSTGRES_PASSWORD={{ postgres_password }}
+      - POSTGRES_DB={{ postgres_db }}
+      - POSTGRES_HOST_AUTH_METHOD={{ postgres_host_auth_method }}
+    restart: {{ postgres_restart }}
+    networks: [ {{ network_name }} ]
+
+  php_fpm:
+    container_name: {{ php_fpm_container_name }}
+    build:
+      context: {{ dockerfiles_path }}
+      dockerfile: {{ php_fpm_dockerfile }}
+    volumes: [ {{ php_external_src_path }}:{{ php_internal_src_path }} ]
+    environment:
+        - PHP_FPM_LISTEN={{ php_fpm_listen }}
+        - POSTGRES_USER={{ postgres_user }}
+        - POSTGRES_DB={{ postgres_db }}
+        - PHP_EXTENSIONS=pdo_pgsql,pgsql
+    restart: {{ php_fpm_restart }}
+    networks: [ {{ network_name }} ]
+
+  nginx:
+    container_name: {{ nginx_container_name }}
+    build:
+      context: {{ dockerfiles_path }}
+      dockerfile: nginx.Dockerfile
+    ports: [ "{{ nginx_external_port }}:{{ nginx_internal_port }}" ]
+    volumes:
+        - {{ external_default_conf_file_path }}:{{ internal_default_conf_file_path }}:ro
+        - {{ external_nginx_conf_file_path }}:{{ internal_nginx_conf_file_path }}:ro
+        - {{ php_external_src_path }}:{{ php_internal_src_path }}
+    restart: {{ nginx_restart }}
+    networks: [ {{ network_name }} ]
+    depends_on:
+      - php_fpm
+
+networks:
+  {{ network_name }}:
+    driver: {{ network_driver }}
+
+volumes:
+  postgres_data:

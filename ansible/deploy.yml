@@ -1,0 +1,241 @@
+---
+- hosts: server
+  # connection: local
+  become: true
+  become_user: root
+  vars:
+    # paths
+    working_dir: "/root/vita"
+    dockerfiles_path: "dockerfiles"
+    configs_path: "configs"
+    docker_compose_path: "docker-compose.yml"
+    templates_path: "templates"
+    src_path: "src"
+
+    script: "script.sh"
+
+    # server_vars
+    docker_host: "unix:///var/run/docker.sock"
+    dev_server_name: "127.0.0.1"
+    production_server_name: "server"
+
+    # docker environment
+    # postgres container vars
+    postgres_container_name: "postgres"
+    external_postgres_port: "5432"
+    internal_postgres_port: "5432"
+    postgres_restart: "unless-stopped"
+    postgres_volume: "postgres_data:/var/lib/postgresql/data"
+    # postgres environment | dev (move to secrets on production!)
+    postgres_user: "dev_user"
+    postgres_password: "dev_password"
+    postgres_db: "dev_db"
+    postgres_host_auth_method: "trust"
+
+    # php
+    php_fpm_container_name: "php_fpm"
+    php_fpm_dockerfile: "php_fpm.Dockerfile"
+    php_fpm_restart: "unless-stopped"
+    php_external_src_path: "{{ working_dir }}/src"
+    php_internal_src_path: "/var/local/sandboxes/dev/www"
+    index_php_file: "index.php"
+    index_php_template_file: "{{ templates_path }}/html/index.php.j2"
+    # php environment
+    php_fpm_listen: "0.0.0.0:9000"
+
+    # nginx
+    nginx_container_name: "nginx"
+    nginx_external_port: "1243"
+    nginx_internal_port: "80"
+    nginx_root_path: "/etc/nginx"
+    nginx_user: "www-data"
+
+    # nginx configs
+    nginx_conf_file_name: "nginx.conf"
+    nginx_default_conf_file_name: "default.conf"
+
+    # default.conf
+    external_default_conf_file_path: "{{ working_dir }}/{{ configs_path }}/{{ nginx_default_conf_file_name }}"
+    internal_default_conf_file_path: "{{ nginx_root_path }}/conf.d/{{ nginx_default_conf_file_name }}"
+
+    # nginx.conf
+    external_nginx_conf_file_path: "{{ working_dir }}/{{ configs_path }}/{{ nginx_conf_file_name }}"
+    internal_nginx_conf_file_path: "{{ nginx_root_path }}/{{ nginx_conf_file_name }}"
+    nginx_restart: "unless-stopped"
+
+    nginx_templates_path: "{{ templates_path }}/nginx"
+    dev_nginx_default_conf_template: "{{ nginx_templates_path }}/dev.default.conf.j2"
+    production_nginx_default_conf_template: "{{ nginx_templates_path }}/production.default.conf.j2"
+    nginx_conf_template: "{{ nginx_templates_path }}/nginx.conf.j2"
+    
+
+    # networks
+    network_name: "vita"
+    network_driver: "bridge"
+
+  
+  tasks:
+    - name: Ping server
+      ping:
+      tags: ['always']
+
+    - name: Create working directory
+      file:
+        path: '{{ working_dir }}'
+        mode: '0775'
+        owner: root
+        state: directory
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Create subdirectories
+      file:
+        path: "{{ working_dir }}/{{ item }}"
+        mode: "0755"
+        state: directory
+      with_items: ['{{ dockerfiles_path }}', '{{ configs_path }}', '{{ src_path }}']
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Copy dockerfiles
+      copy:
+        src: "{{ item }}"
+        dest: "{{ working_dir }}/{{ dockerfiles_path }}/{{ item | basename }}"
+        mode: "0664"
+        force: yes
+      with_fileglob: '{{ dockerfiles_path }}/*.Dockerfile'
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Create NGINX nginx.conf from template
+      template:
+        src: "{{ nginx_conf_template }}"
+        dest: "{{ external_nginx_conf_file_path }}"
+        mode: "0644"
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Create NGINX default.conf from template (DEV)
+      template:
+        src: "{{ dev_nginx_default_conf_template }}"
+        dest: "{{ external_default_conf_file_path }}"
+        mode: "0644"
+      tags: ['dev', 'dry-run']
+
+    - name: Create NGINX default.conf from template (production)
+      template:
+        src: "{{ production_nginx_default_conf_template }}"
+        dest: "{{ external_default_conf_file_path }}"
+        mode: "0644"
+      tags: ['release']
+
+    - name: Create index.php from template
+      template:
+        src: "{{ index_php_template_file }}"
+        dest: "{{ php_external_src_path }}/{{ index_php_file }}"
+        mode: "0755"
+        owner: 'root'
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Create docker-compose.yml from template
+      template:
+        src: templates/docker-compose.yml.j2
+        dest: "{{ working_dir }}/{{ docker_compose_path }}"
+        mode: "0644"
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Check working directory
+      command: 'ls -laR {{ working_dir }}'
+      register: result
+      tags: ['release', 'dev', 'dry-run']
+
+    - debug:
+        var: result.stdout_lines
+      tags: ['release', 'dev', 'dry-run']
+
+    - name: Run container PostgreSQL
+      community.docker.docker_compose_v2:
+        build: always
+        docker_host: '{{ docker_host }}'
+        project_src: '{{ working_dir }}'
+        remove_orphans: 'true'
+        services: [ '{{ postgres_container_name }}' ]
+        state: present
+      tags: ['release', 'dev']
+
+    - name: Wait for PostgreSQL to be ready
+      wait_for:
+        host: "{{ postgres_host | default('localhost') }}"
+        port: "{{ external_postgres_port | default(5432) }}"
+        delay: 5
+        timeout: 60
+        state: started
+      tags: ['release', 'dev']
+
+    - name: Verify PostgreSQL connection
+      shell: |
+        PGPASSWORD='{{ postgres_password }}' psql -h 127.0.0.1 -p {{ external_postgres_port }} -U {{ postgres_user }} -c "SELECT 1;" {{ postgres_db }}
+      register: connection_test
+      tags: ['release', 'dev']
+
+    - name: Show connection result
+      debug:
+        msg: "PostgreSQL connection test: {{ 'Success' if connection_test.rc == 0 else 'Failed' }}"
+      tags: ['release', 'dev']
+
+    - name: Run container PHP-FPM
+      community.docker.docker_compose_v2:
+        build: always
+        docker_host: '{{ docker_host }}'
+        project_src: '{{ working_dir }}'
+        remove_orphans: 'true'
+        services: [ '{{ php_fpm_container_name }}' ]
+        state: present
+      tags: ['release', 'dev']
+
+    - name: Test PHP execution
+      command: docker exec {{ php_fpm_container_name }} php -r "echo 'PHP version - ' . PHP_VERSION;"
+      register: php_version
+      tags: ['release', 'dev']
+
+    - name: Display PHP version
+      debug:
+        msg: "{{ php_version.stdout }}"
+      tags: ['release', 'dev']
+
+    - name: Run container NGINX
+      community.docker.docker_compose_v2:
+        build: always
+        docker_host: '{{ docker_host }}'
+        project_src: '{{ working_dir }}'
+        remove_orphans: 'true'
+        services: [ '{{ nginx_container_name }}' ]
+        state: present
+      tags: ['release', 'dev']
+
+    - name: Wait for NGINX to be ready
+      wait_for:
+        host: "{{ postgres_host | default('localhost') }}"
+        port: "{{ nginx_external_port | default(80) }}"
+        delay: 5
+        timeout: 60
+        state: started
+      tags: ['release', 'dev']
+
+    - name: Open firewall port NGINX
+      ansible.posix.firewalld:
+        port: '{{ nginx_external_port }}/tcp'
+        permanent: yes
+        state: enabled
+        immediate: yes
+      tags: ['init']
+
+    - name: Down all containers (PRUNE)
+      community.docker.docker_compose_v2:
+        project_src: '{{ working_dir }}'
+        services: [ 'postgres', 'nginx', 'php_fpm' ]
+        state: absent
+        remove_volumes: true
+      tags: ['prune', 'never']
+
+    - name: Remove all files (PRUNE)
+      file:
+        dest: '{{ working_dir }}'
+        state: absent
+      tags: ['prune', 'never']
