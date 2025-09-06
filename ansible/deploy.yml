@@ -170,7 +170,7 @@
 
     - name: Verify PostgreSQL connection
       shell: |
-        PGPASSWORD='{{ postgres_password }}' psql -h 127.0.0.1 -p {{ external_postgres_port }} -U {{ postgres_user }} -c "SELECT 1;" {{ postgres_db }}
+        PGPASSWORD='{{ postgres_password }}' psql -h {{ ansible_default_ipv4.address }} -p {{ external_postgres_port }} -U {{ postgres_user }} -c "SELECT 1;" {{ postgres_db }}
       register: connection_test
       tags: ['release', 'dev']
 
